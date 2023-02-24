@@ -1,0 +1,89 @@
+---
+title: "Retrieving NYT"
+author: "Jihyeon bae"
+date: "2023-02-02"
+output: html_document
+---
+
+#For future reference, if any of the below code does not work, it is because of the NYT's very narrow call limit. Try slicing time windows (perhaps fetching article for a month) and then add pieces together. Can reach out to the NYT API team directly for better call limit. Otherwise, default will be 200 pages. 
+
+```{r setup, include=FALSE}
+#install.packages("devtools")
+#devtools::install_github("mkearney/nytimes")
+
+
+library(plm)
+library("pacman")
+p_load(plyr, dplyr, ggplot2, MASS, tidyverse, magrittr, RColorBrewer, readxl,
+  readr, rtweet, lubridate, scales, leaflet, academictwitteR, ggmap, quanteda,
+  ggmap, jtools, jsonlite, haven, lmerTest, sjPlot, sjmisc, modelsummary, stargazer, tmap, terra, rgdal, httr, yaml, nytimes, plm)
+
+
+```
+
+#Setting up API
+```{r}
+Sys.setenv(NYTIMES_KEY="PUT YOUR API KEY HERE")
+NYTIMES_KEY="PUT YOUR API KEY HERE"
+
+```
+
+
+
+```{r}
+
+term <- "trump" # Need to use + to string together separate words
+begin_date <- "20161108"
+end_date <- "20210108"
+
+baseurl <- paste0("http://api.nytimes.com/svc/search/v2/articlesearch.json?q=",
+                  "&begin_date=",20161108,
+                  "&end_date=",20161108,
+                  "&facet_filter=true&api-key=",NYTIMES_KEY, sep="")
+
+initialQuery <- fromJSON(baseurl)
+
+maxPages <- round((initialQuery$response$meta$hits[1] / 10)-1) 
+
+pages <- list()
+for(i in 0:maxPages){
+  nytSearch <- fromJSON(paste0(baseurl, "&page=", i), flatten = TRUE) %>% data.frame() 
+  message("Retrieving page ", i)
+  pages[[i+1]] <- nytSearch 
+  Sys.sleep(10) 
+}
+
+sample <- rbind_pages(pages)
+
+
+```
+
+# This creates a separate data frame that gives the count of articles published per day. I used for loop to fetch the total number of pages gathered for each day. 
+
+```{r}
+daily_nyt<-data.frame(matrix(ncol=2))
+colnames(daily_nyt) <-c("date", "count")
+
+start <-format(as.Date("2016-01-08"), "%Y%m%d")
+end <- format(as.Date("2021-01-08"), "%Y%m%d")
+
+dates <-seq(from=start, to=end, by=1)
+
+
+for (d in dates){
+  baseurl <- paste0("http://api.nytimes.com/svc/search/v2/articlesearch.json?q=",
+                  "&begin_date=",d,
+                  "&end_date=",d,
+                  "&facet_filter=true&api-key=",NYTIMES_KEY, sep="")
+  initialQuery <- fromJSON(baseurl)
+  output = c(d, round((initialQuery$response$meta$hits[1] / 10)-1))
+  daily_nyt<-rbind(daily_nyt, output)
+    d <-d + 1
+  Sys.sleep(6) 
+}
+
+
+```
+
+
+
